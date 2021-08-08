@@ -12,17 +12,20 @@
 
 <!-- Require face-landmarks-detection itself. -->
 <script src="https://unpkg.com/@tensorflow-models/face-landmarks-detection@0.0.1/dist/face-landmarks-detection.js"></script>
+<script src="../MakeupHub/js/ThirdParty/painterro-1.2.58.min.js"></script>
   <!-- Load Mathjs -->
   <script src="https://unpkg.com/mathjs@9.2.0/lib/browser/math.js"> </script>
+
   <link rel="stylesheet" href="./playScreen.css">
   <meta charset="utf-8" />
 </head>
 
 <body>
   <button id="capture">Capture</button>
+  <button id="paint">Paint</button>
   <video id= "webcamFrame" class="webcam"  autoplay="true" height="480" width="640"> </video>
   <canvas id="webcamCanvas" class="cnvs" height="480" width="640"></canvas>
-  <script type = "module" src="../DrumsApp/js/main.js"></script>
+  <script type = "module" src="../MakeupHub/js/main.js"></script>
 </body>
 
 </html>

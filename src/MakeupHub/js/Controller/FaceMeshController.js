@@ -28,6 +28,7 @@ class FaceMeshController{
         this.webcamController = webcamController;
         this.faceMesh = null;
         this.painter = painter;
+        this.painter.setFaceMeshController(this)
         this._load_faceMesh();
     }
 
@@ -43,6 +44,18 @@ class FaceMeshController{
         const prediction = await this.faceMesh.estimateFaces({input: this.webcamController.videoStream});
         if (prediction.length > 0){ //&& prediction.faceInViewConfidence > CONFIDENCE_THRESHOLD
             this.painter.paint(prediction[0].scaledMesh);
+        }
+    }
+
+    async predictBoundingBoxFromImage(img){
+        const prediction = await this.faceMesh.estimateFaces({input: img});
+        if (prediction.length > 0){ //&& prediction.faceInViewConfidence > CONFIDENCE_THRESHOLD
+            const [x, y] = prediction[0].boundingBox.topLeft;
+            const width = prediction[0].boundingBox.bottomRight[0] - x;
+            const height = prediction[0].boundingBox.bottomRight[1] - y;
+            return {x : x, y : y, width : width, height : height};
+        } else {
+            return null;
         }
     }
 

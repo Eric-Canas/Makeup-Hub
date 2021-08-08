@@ -14,8 +14,10 @@ import {WEBCAM_FRAME_ID} from "../Model/Constants.js";
 class WebcamController{
     constructor(videoID=WEBCAM_FRAME_ID){
         this.videoStream = document.getElementById(videoID);
+        this.hiddenCanvas = document.createElement('canvas');
+        this.hiddenCanvasContext = this.hiddenCanvas.getContext('2d');
         if (navigator.mediaDevices.getUserMedia) {
-            this.webcamPromise = navigator.mediaDevices.getUserMedia({ video: true });
+            this.webcamPromise = navigator.mediaDevices.getUserMedia({ video: true, audio : false});
             this.webcamPromise.then(stream => this.videoStream.srcObject = stream)
                               .catch(error => this._noWebcamAccessError(error));
         
@@ -36,6 +38,23 @@ class WebcamController{
     updateVideoParameters(){
         this.width = this.videoStream.videoWidth;
         this.height = this.videoStream.videoHeight;
+        this.hiddenCanvas.width = this.width;
+        this.hiddenCanvas.height = this.height;
+    }
+
+    takePicture(getAsURL = true){
+        this.hiddenCanvasContext.drawImage(this.videoStream, 0, 0, this.width, this.height);
+        if (getAsURL){
+            return this.hiddenCanvas.toDataURL('image/png');
+        }else{
+            const photo = document.createElement('img');
+            photo.src = this.hiddenCanvas.toDataURL('image/png');
+        
+            return new Promise((resolve, reject) => {
+                photo.onload = () => {resolve(photo);};
+                photo.onerror = reject;
+            });
+        }
     }
 }
 export {WebcamController};

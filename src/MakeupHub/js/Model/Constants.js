@@ -37,5 +37,5 @@ const EPSILON = 0.0001;
 const ROUGH_EPSION = 0.0025;
 export {EPSILON, ROUGH_EPSION};
 
-const INITIAL_MASK_PATH = '../DrumsApp/js/Resources/mesh_map_resized.jpg';
+const INITIAL_MASK_PATH = '../MakeupHub/js/Resources/mesh_map_resized.jpg';
 export {INITIAL_MASK_PATH}

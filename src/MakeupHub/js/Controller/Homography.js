@@ -1051,7 +1051,6 @@ class Homography {
         }
         // output_img starts as a fully transparent image (the whole alpha channel is filled with 0).
         let output_img = new Uint8ClampedArray(dstRowLenght*this._objectiveHeight, this._objectiveHeight);
-       console.log(this._xOutputOffset, this._yOutputOffset, this._objectiveWidth);
         for (let y = this._yOutputOffset; y < this._objectiveHeight+this._yOutputOffset; y++){
             for (let x = this._xOutputOffset; x < this._objectiveWidth+this._xOutputOffset; x++){
                 const inTriangle = inverseTriangleCorrespondenceMatrix[(y-this._yOutputOffset)*triangleCorrespondenceMatrixWidth+(x-this._xOutputOffset)]

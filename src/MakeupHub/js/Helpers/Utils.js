@@ -3,6 +3,9 @@ const argFact = (compareFn) => (array) => array.map((el, idx) => [el, idx]).redu
 const argMax = argFact((min, el) => (el[0] > min[0] ? el : min))
 const argMin = argFact((max, el) => (el[0] < max[0] ? el : max))
 
+let hiddenCanvas = document.createElement('canvas');
+let hiddenCanvasContext = hiddenCanvas.getContext("2d");
+
 function getRectFromPointsBuffer(points){
   let xMin = Infinity;
   let xMax = -Infinity;
@@ -21,6 +24,32 @@ function getRectFromPointsBuffer(points){
   return {x : xMin, y : yMin, width : xMax-xMin, height : yMax-yMin};
 }
 export {getRectFromPointsBuffer}
+
+function cropImage(img, boundingBox, maxAxis=496, getAsURL=true){
+  let adjustedWidth, adjustedHeight;
+  if (boundingBox.width > boundingBox.height){
+    adjustedWidth = maxAxis;
+    adjustedHeight = maxAxis*(boundingBox.height/boundingBox.width);
+  } else {
+    adjustedHeight = maxAxis;
+    adjustedWidth = maxAxis*(boundingBox.width/boundingBox.height);
+  }
+  hiddenCanvas.width = adjustedWidth
+  hiddenCanvas.height = adjustedHeight;
+  hiddenCanvasContext.drawImage(img, boundingBox.x, boundingBox.y, boundingBox.width, boundingBox.height, 0, 0, adjustedWidth, adjustedHeight);
+  if (getAsURL){
+      return hiddenCanvas.toDataURL('image/png');
+  } else {
+    const photo = document.createElement('img');
+    photo.src = hiddenCanvas.toDataURL('image/png');
+    return new Promise((resolve, reject) => {
+        photo.onload = () => {resolve(photo);};
+        photo.onerror = reject;
+    });
+  }
+
+}
+export {cropImage};
 
 function mapValue(x, in_min, in_max, out_min = 0, out_max = 1) {
   x = x < in_min? in_min : x;
