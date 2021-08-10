@@ -122,7 +122,9 @@ class Homography {
         this._dstPointsAreNormalized = true;
         // Sets the auxiliar variable that will save for the source image, to which triangle of the mesh belongs each coord in "piecewiseaffine" 
         this._trianglesCorrespondencesMatrix = null;
+        this._trianglesCorrespondencesMatrixZ = null;
         this._triangles = null;
+        this._pointsZ = null;
         // Sets the variables that will save the transform matrices
         this._transformMatrix = null;
         this._piecewiseMatrices = null;
@@ -224,7 +226,7 @@ class Homography {
      *                                           automatically inferred from the points array.
      * 
      */
-    setSourcePoints(points, image = null, width = null, height = null, pointsAreNormalized = null){
+    setSourcePoints(points, image = null, width = null, height = null, pointsAreNormalized = null, srcPointsZ = null){
         // If it is given as a list, transform it to an Float32Array for improving performance.
         if(!ArrayBuffer.isView(points)) points = new Float32Array(points.flat())
         // Set the source points property
@@ -257,6 +259,7 @@ class Homography {
         if(this._dstPoints !== null && this.transform !== 'piecewise'){
             this._transformMatrix = calculateTransformMatrix(this.transform, this._srcPoints, this._dstPoints);
         }
+        this._pointsZ = srcPointsZ;
         // In case that no width or height were given, but points were already in image coordinates, the "piecewiseaffine" correspondence matrix is still calculable.
         if (this.transform === 'piecewiseaffine' && this._trianglesCorrespondencesMatrix === null){
             // Unset any previous information about Piecewise Affine auxiliar matrices, as they are not reutilizable when source points are modified.
@@ -304,8 +307,13 @@ class Homography {
         }
         
         // Sets the image as a flat Uint8ClampedArray, for dealing fast with it. It will also resize the image if needed.
-        this._HTMLImage = image;
-        this._image = this._getImageAsRGBAArray(image);
+        // If it is already ImageData save it, else convert it
+        if (ArrayBuffer.isView(image.data)){
+            this._image = image.data;
+        } else {
+            this._HTMLImage = image;
+            this._image = this._getImageAsRGBAArray(image);
+        }
 
         // If source points are already set, now it is possible to calculate the "piecewiseaffine" parameters if needed.
         if(this._srcPoints !== null && this.transform === 'piecewiseaffine'){
@@ -409,7 +417,7 @@ class Homography {
      *                                                directly drawn on canvas by using context.putImageData(imgData, x, y).
      */
 
-     warp(image = null, asHTMLPromise = false){
+     warp(image = null, asHTMLPromise = false, alwaysApplyInverse = false){
         // If the image was given, sets it internally (It will also recalculate any information that depends of it).
         if (image !== null){
             this.setImage(image);
@@ -422,13 +430,13 @@ class Homography {
             case 'piecewiseaffine':
                 // If objectiveWidth or objectiveHeight are larger than width or height apply inverse transform, otherwise apply the source to destiny transfrom
                 // Apply also the inverse transform in the reduction case, when the width/height difference is great enough for compensating the overhead of inverse transform
-                output_img = this._piecewiseAffineWarp(this._image);
-                /*output_img = (this._objectiveWidth > this._width || this._objectiveHeight > this._height || this._objectiveWidth*1.2 < this._width || this._objectiveHeight*1.2 < this._height)?
-                                                            this._inversePiecewiseAffineWarp(this._image) : this._piecewiseAffineWarp(this._image);*/
+               
+                output_img = (alwaysApplyInverse && (this._objectiveWidth > this._width || this._objectiveHeight > this._height || this._objectiveWidth*1.2 < this._width || this._objectiveHeight*1.2 < this._height))?
+                                                            this._inversePiecewiseAffineWarp(this._image) : this._piecewiseAffineWarp(this._image);
                 break;
             case 'affine':
                 // If objectiveWidth or objectiveHeight are larger than width or height apply inverse transform, otherwise apply the source to destiny transfrom 
-                output_img = (this._objectiveWidth !== this._width || this._objectiveHeight !== this._height)?
+                output_img = (alwaysApplyInverse && (this._objectiveWidth !== this._width || this._objectiveHeight !== this._height))?
                                                                     this._inverseGeometricWarp(this._image) : this._geometricWarp(this._image);
                 break;
             case 'projective':
@@ -528,7 +536,8 @@ class Homography {
      */
 
      setTriangles(triangles)
-     {
+     {      
+         this._initialTriangles = triangles;
          this._triangles = triangles;
          if ((!this._srcPointsAreNormalized || (this._width > 0 && this._height > 0)) && this._srcPoints !== null ){
             // Set all the parameters that can be already set
@@ -769,7 +778,7 @@ class Homography {
             if (!this._srcPointsAreNormalized && (this._triangles === null || this._trianglesCorrespondencesMatrix === null)){
                 // Set the maxSrcX and maxSrcY. By the program logic, if it happens it is ensured that it did not happen in setSourcePoints(points) function
                 [this._minSrcX, this._minSrcY, this._maxSrcX, this._maxSrcY] = minmaxXYofArray(this._srcPoints);
-                this._trianglesCorrespondencesMatrix = this._buildTrianglesCorrespondencesMatrix();
+                this._trianglesCorrespondencesMatrix = this._buildTrianglesCorrespondencesMatrix(this.pointsZ);
             }
             // If destiny points are known (as well as source points), build also the transformation matrices if they did not exist.
             // NOTE that it forces to unset piecewiseMatrices (set as null) when source points or destiny points are modified.
@@ -812,6 +821,7 @@ class Homography {
                 this._auxDstTriangle[2] = this._dstPoints[this._triangles[i+1]<<1]; this._auxDstTriangle[3] = this._dstPoints[(this._triangles[i+1]<<1)+1];
                 this._auxDstTriangle[4] = this._dstPoints[this._triangles[i+2]<<1]; this._auxDstTriangle[5] = this._dstPoints[(this._triangles[i+2]<<1)+1];
                 piecewiseMatrices.push(affineMatrixFromTriangles(this._auxSrcTriangle, this._auxDstTriangle))
+               
             }
             return piecewiseMatrices;
     }
@@ -827,20 +837,48 @@ class Homography {
      *                              determines the validity of the solution in terms of performance.
      *                              
      */
-     _buildTrianglesCorrespondencesMatrix(){
+     _buildTrianglesCorrespondencesMatrix(pointsZ=null){
         const matrixLength = (this._maxSrcX-this._minSrcX)*(this._maxSrcY - this._minSrcY);
         if (this._trianglesCorrespondencesMatrix === null || this._trianglesCorrespondencesMatrix.length !== matrixLength){
             this._trianglesCorrespondencesMatrix = new Int16Array(matrixLength);
         }
         this._trianglesCorrespondencesMatrix.fill(-1);
-        for(let i = 0; i < this._triangles.length; i+=3){
-            // Set in the already allocated memory for doing it faster and keep it as an Int16Array
-            //Set the srcTriangle
-            this._auxSrcTriangle[0] = this._srcPoints[this._triangles[i]<<1]; this._auxSrcTriangle[1] = this._srcPoints[(this._triangles[i]<<1)+1];
-            this._auxSrcTriangle[2] = this._srcPoints[this._triangles[i+1]<<1]; this._auxSrcTriangle[3] = this._srcPoints[(this._triangles[i+1]<<1)+1];
-            this._auxSrcTriangle[4] = this._srcPoints[this._triangles[i+2]<<1]; this._auxSrcTriangle[5] = this._srcPoints[(this._triangles[i+2]<<1)+1];
-            fillTriangle(this._auxSrcTriangle, i/3, this._maxSrcX-this._minSrcX, this._minSrcY, this._trianglesCorrespondencesMatrix);
+        if (pointsZ===null){
+            for(let i = 0; i < this._triangles.length; i+=3){
+                // Set in the already allocated memory for doing it faster and keep it as an Int16Array
+                //Set the srcTriangle
+                this._auxSrcTriangle[0] = this._srcPoints[this._triangles[i]<<1]; this._auxSrcTriangle[1] = this._srcPoints[(this._triangles[i]<<1)+1];
+                this._auxSrcTriangle[2] = this._srcPoints[this._triangles[i+1]<<1]; this._auxSrcTriangle[3] = this._srcPoints[(this._triangles[i+1]<<1)+1];
+                this._auxSrcTriangle[4] = this._srcPoints[this._triangles[i+2]<<1]; this._auxSrcTriangle[5] = this._srcPoints[(this._triangles[i+2]<<1)+1];
+                fillTriangle(this._auxSrcTriangle, i/3, this._maxSrcX-this._minSrcX, this._minSrcY, this._trianglesCorrespondencesMatrix);
+            }
+        // If pointsZ argument is given, keep the track of it for avoiding to re-fill any unseen position     
+        }else{
+            if (this._trianglesCorrespondencesMatrixZ === null || this._trianglesCorrespondencesMatrixZ.length !== matrixLength){
+                this._trianglesCorrespondencesMatrixZ = new Float32Array(matrixLength);
+            }
+            this._trianglesCorrespondencesMatrixZ.fill(-Infinity);
+            for(let i = 0; i < this._triangles.length; i+=3){
+                // Set in the already allocated memory for doing it faster and keep it as an Int16Array
+                //Set the srcTriangle
+                this._auxSrcTriangle[0] = this._srcPoints[this._triangles[i]<<1]; this._auxSrcTriangle[1] = this._srcPoints[(this._triangles[i]<<1)+1];
+                this._auxSrcTriangle[2] = this._srcPoints[this._triangles[i+1]<<1]; this._auxSrcTriangle[3] = this._srcPoints[(this._triangles[i+1]<<1)+1];
+                this._auxSrcTriangle[4] = this._srcPoints[this._triangles[i+2]<<1]; this._auxSrcTriangle[5] = this._srcPoints[(this._triangles[i+2]<<1)+1];
+                const z = Math.min(pointsZ[this._triangles[i]], pointsZ[this._triangles[i+1]], pointsZ[this._triangles[i+2]])
+                fillTriangleTakingZIntoAccount(this._auxSrcTriangle, z, i/3, this._maxSrcX-this._minSrcX, this._minSrcY, this._trianglesCorrespondencesMatrix, this._trianglesCorrespondencesMatrixZ);
+            }
+        }/*
+        let matrix = [];
+        let i = 0;
+        while(i < this._trianglesCorrespondencesMatrix.length){
+            let row = []
+            for(let x = 0; x<this._maxSrcX-this._minSrcX; x++){
+                row.push(this._trianglesCorrespondencesMatrixZ[i++])
+            }
+            matrix.push(row);
         }
+        console.table(matrix);
+        */
         return this._trianglesCorrespondencesMatrix;
     }
 
@@ -855,20 +893,35 @@ class Homography {
      *                              determines the validity of the solution in terms of performance.
      *                              
      */
-    _buildInverseTrianglesCorrespondencesMatrix(){ 
+    _buildInverseTrianglesCorrespondencesMatrix(pointsZ = null){ 
         const matrixLength = this._objectiveWidth*this._objectiveHeight;
         if (this._trianglesCorrespondencesMatrix === null || this._trianglesCorrespondencesMatrix.length !== matrixLength){
             this._trianglesCorrespondencesMatrix = new Int16Array(matrixLength);
         }
         this._trianglesCorrespondencesMatrix.fill(-1);
-
-        for(let i = 0; i < this._triangles.length; i+=3){
-             //Set the dstTriangle
-             this._auxDstTriangle[0] = this._dstPoints[this._triangles[i]<<1]; this._auxDstTriangle[1] = this._dstPoints[(this._triangles[i]<<1)+1];
-             this._auxDstTriangle[2] = this._dstPoints[this._triangles[i+1]<<1]; this._auxDstTriangle[3] = this._dstPoints[(this._triangles[i+1]<<1)+1];
-             this._auxDstTriangle[4] = this._dstPoints[this._triangles[i+2]<<1]; this._auxDstTriangle[5] = this._dstPoints[(this._triangles[i+2]<<1)+1];
-             fillTriangle(this._auxDstTriangle, i/3, this._objectiveWidth, this._yOutputOffset, this._trianglesCorrespondencesMatrix);
+        if (pointsZ===null){
+            for(let i = 0; i < this._triangles.length; i+=3){
+                    //Set the dstTriangle
+                    this._auxDstTriangle[0] = this._dstPoints[this._triangles[i]<<1]; this._auxDstTriangle[1] = this._dstPoints[(this._triangles[i]<<1)+1];
+                    this._auxDstTriangle[2] = this._dstPoints[this._triangles[i+1]<<1]; this._auxDstTriangle[3] = this._dstPoints[(this._triangles[i+1]<<1)+1];
+                    this._auxDstTriangle[4] = this._dstPoints[this._triangles[i+2]<<1]; this._auxDstTriangle[5] = this._dstPoints[(this._triangles[i+2]<<1)+1];
+                    fillTriangle(this._auxDstTriangle, i/3, this._objectiveWidth, this._yOutputOffset, this._trianglesCorrespondencesMatrix);
+            }
+        }else{
+            if (this._trianglesCorrespondencesMatrixZ === null || this._trianglesCorrespondencesMatrixZ.length !== matrixLength){
+                this._trianglesCorrespondencesMatrixZ = new Float32Array(matrixLength);
+            }
+            this._trianglesCorrespondencesMatrixZ.fill(-Infinity);
+            for(let i = 0; i < this._triangles.length; i+=3){
+                //Set the dstTriangle
+                this._auxDstTriangle[0] = this._dstPoints[this._triangles[i]<<1]; this._auxDstTriangle[1] = this._dstPoints[(this._triangles[i]<<1)+1];
+                this._auxDstTriangle[2] = this._dstPoints[this._triangles[i+1]<<1]; this._auxDstTriangle[3] = this._dstPoints[(this._triangles[i+1]<<1)+1];
+                this._auxDstTriangle[4] = this._dstPoints[this._triangles[i+2]<<1]; this._auxDstTriangle[5] = this._dstPoints[(this._triangles[i+2]<<1)+1];
+                const z = Math.min(pointsZ[this._triangles[i]], pointsZ[this._triangles[i+1]], pointsZ[this._triangles[i+2]])
+                fillTriangleTakingZIntoAccount(this._auxDstTriangle, z, i/3, this._objectiveWidth, this._yOutputOffset, this._trianglesCorrespondencesMatrix, this._trianglesCorrespondencesMatrixZ);
+            }
         }
+
 
        return this._trianglesCorrespondencesMatrix;
     }
@@ -968,7 +1021,7 @@ class Homography {
         for (let y = this._minSrcY; y < this._maxSrcY; y++){
             for (let x = this._minSrcX; x < this._maxSrcX; x++){
                 const inTriangle = this._trianglesCorrespondencesMatrix[(y-this._minSrcY)*triangleCorrespondenceMatrixWidth+(x-this._minSrcX)]
-                if (inTriangle > -1){
+                if (inTriangle >= 0){
                     //Get the index of y, x coordinate in the source image ArrayBuffer (<<2 is a faster version of *4)
                     const idx = (y*srcRowLenght)+(x<<2);
                     let [newX, newY] = applyAffineTransformToPoint(this._piecewiseMatrices[inTriangle], x, y);
@@ -978,8 +1031,8 @@ class Homography {
                     
                     output_img[newIdx] = image[idx], output_img[newIdx+1] = image[idx+1],
                     output_img[newIdx+2] = image[idx+2], output_img[newIdx+3] = image[idx+3]; 
-                }
-            }    
+                } 
+            }
         }    
         return output_img;
     }
@@ -1040,11 +1093,10 @@ class Homography {
      * 
      */
     _inversePiecewiseAffineWarp(image){
-        
         const srcRowLenght = this._width<<2;
         const dstRowLenght = this._objectiveWidth<<2;
-        const inverseTriangleCorrespondenceMatrix = this._buildInverseTrianglesCorrespondencesMatrix();
-        const triangleCorrespondenceMatrixWidth = this._objectiveWidth-this._xOutputOffset;
+        const inverseTriangleCorrespondenceMatrix = this._buildInverseTrianglesCorrespondencesMatrix(this._pointsZ);
+        const triangleCorrespondenceMatrixWidth = this._objectiveWidth;
         let inversePiecewiseMatrices = []
         for (let i=0; i<this._piecewiseMatrices.length; i++){
             inversePiecewiseMatrices.push(inverseAffineMatrix(this._piecewiseMatrices[i]));
@@ -1056,7 +1108,7 @@ class Homography {
                 const inTriangle = inverseTriangleCorrespondenceMatrix[(y-this._yOutputOffset)*triangleCorrespondenceMatrixWidth+(x-this._xOutputOffset)]
                 if (inTriangle >= 0){
                     let [srcX, srcY] = applyAffineTransformToPoint(inversePiecewiseMatrices[inTriangle], x, y);
-                    if (srcX >= 0 && srcX < this._width && srcY >= 0 && srcY < this._height){
+                    if (srcX >= this._minSrcX && srcX < this._width+this._minSrcX && srcY >= this._minSrcY && srcY < this._height+this._minSrcY){
                         srcX = Math.round(srcX); srcY = Math.round(srcY);
                         const srcIdx = (srcY*srcRowLenght)+(srcX<<2);
                         const dstIdx = ((y-this._yOutputOffset)*dstRowLenght)+((x-this._xOutputOffset)<<2);
@@ -1065,7 +1117,7 @@ class Homography {
                     }
                 }
             }    
-        }    
+        }
         return output_img;
     }
     
@@ -1134,6 +1186,28 @@ function fillTriangle(triangle, idx, matrix_width, yOffset, trianglesCorresponde
         [xOrigin, xDestiny] = predictXLimits(segments, y);
         //Fill that subsection of the matrix with the given idx
         trianglesCorrespondencesMatrix.fill(idx, (y-yOffset)*matrix_width + Math.round(xOrigin), (y-yOffset)*matrix_width + Math.round(xDestiny));
+    }
+}
+
+function fillTriangleTakingZIntoAccount(triangle, z, idx, matrix_width, yOffset, trianglesCorrespondencesMatrix, trianglesZCorrespondencesMatrix){
+    // Take the first point in Y that will belong to the given triangle
+    const minY = ~~Math.min(triangle[1], triangle[3], triangle[5]);
+    // Take the last point in Y that will belong to the given triangle
+    const maxY = Math.ceil(Math.max(triangle[1], triangle[3], triangle[5]));
+    // Calculate the equation of the line for each segment of the triangle
+    const segments = defineTriangleLineEquations(triangle);
+    let xOrigin, xDestiny;
+    // For each row of the matrix belonging to the given triangle
+    for (let y = minY; y < maxY; y++){
+        // Get the first and the last point where they intersect in X (inside the segment bounds)
+        [xOrigin, xDestiny] = predictXLimits(segments, y);
+        for(let x = xOrigin; x<xDestiny; x++){
+            const position = (y-yOffset)*matrix_width + Math.round(x);
+            if (z > trianglesZCorrespondencesMatrix[position]){
+                trianglesZCorrespondencesMatrix[position] = z;
+                trianglesCorrespondencesMatrix[position] = idx;
+            }
+        }
     }
 }
 

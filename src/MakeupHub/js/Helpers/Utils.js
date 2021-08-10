@@ -1,3 +1,5 @@
+import { MAX_AXIS_SHAPE } from "../Model/Constants.js";
+
 const argFact = (compareFn) => (array) => array.map((el, idx) => [el, idx]).reduce(compareFn)[1]
 
 const argMax = argFact((min, el) => (el[0] > min[0] ? el : min))
@@ -25,16 +27,9 @@ function getRectFromPointsBuffer(points){
 }
 export {getRectFromPointsBuffer}
 
-function cropImage(img, boundingBox, maxAxis=496, getAsURL=true){
-  let adjustedWidth, adjustedHeight;
-  if (boundingBox.width > boundingBox.height){
-    adjustedWidth = maxAxis;
-    adjustedHeight = maxAxis*(boundingBox.height/boundingBox.width);
-  } else {
-    adjustedHeight = maxAxis;
-    adjustedWidth = maxAxis*(boundingBox.width/boundingBox.height);
-  }
-  hiddenCanvas.width = adjustedWidth
+function cropImage(img, boundingBox, maxAxis=MAX_AXIS_SHAPE, getAsURL=true){
+  const [adjustedWidth, adjustedHeight] = adjustedWidthHeightFromBoudingBox(boundingBox, maxAxis);
+  hiddenCanvas.width = adjustedWidth;
   hiddenCanvas.height = adjustedHeight;
   hiddenCanvasContext.drawImage(img, boundingBox.x, boundingBox.y, boundingBox.width, boundingBox.height, 0, 0, adjustedWidth, adjustedHeight);
   if (getAsURL){
@@ -50,6 +45,31 @@ function cropImage(img, boundingBox, maxAxis=496, getAsURL=true){
 
 }
 export {cropImage};
+
+function adjustedWidthHeightFromBoudingBox(boundingBox, maxAxis = MAX_AXIS_SHAPE){
+  let adjustedWidth, adjustedHeight;
+  if (boundingBox.width > boundingBox.height){
+    adjustedWidth = maxAxis;
+    adjustedHeight = maxAxis*(boundingBox.height/boundingBox.width);
+  } else {
+    adjustedHeight = maxAxis;
+    adjustedWidth = maxAxis*(boundingBox.width/boundingBox.height);
+  }
+  return [adjustedWidth, adjustedHeight];
+}
+export {adjustedWidthHeightFromBoudingBox};
+
+function sumArrays(arr1, arr2){
+  if (arr1.length !== arr2.length){
+    throw(`Both arrays must have same shape to be fused. arr1 is ${arr1.length} but arr2 is ${arr2.length}`)
+  }else{
+    for(let i=0; i<arr1.length; i++){
+      arr1[i] += arr2[i];
+    }
+  } 
+}
+export {sumArrays};
+
 
 function mapValue(x, in_min, in_max, out_min = 0, out_max = 1) {
   x = x < in_min? in_min : x;

@@ -37,7 +37,7 @@ class FaceMeshController{
         this.faceMesh = await faceLandmarksDetection.load(faceLandmarksDetection.SupportedPackages.mediapipeFacemesh, options); 
         //Iris are the last 10 marks and it corresponds with the scaledMesh of prediction
         this.painter.addSrcPoints(this.faceMesh.__proto__.constructor.getUVCoords());
-        this.webcamController.videoStream.addEventListener('loadeddata', () => document.getElementById('capture').addEventListener("click", this.predict.bind(this)));
+        this.webcamController.videoStream.addEventListener('loadeddata', this.predict.bind(this));
     }
     
     async predict(){
@@ -45,6 +45,7 @@ class FaceMeshController{
         if (prediction.length > 0){ //&& prediction.faceInViewConfidence > CONFIDENCE_THRESHOLD
             this.painter.paint(prediction[0].scaledMesh);
         }
+        setTimeout(() => this.predict(), 0.1)
     }
 
     async predictBoundingBoxFromImage(img){
@@ -53,9 +54,9 @@ class FaceMeshController{
             const [x, y] = prediction[0].boundingBox.topLeft;
             const width = prediction[0].boundingBox.bottomRight[0] - x;
             const height = prediction[0].boundingBox.bottomRight[1] - y;
-            return {x : x, y : y, width : width, height : height};
+            return [prediction[0].scaledMesh, {x : x, y : y, width : width, height : height}];
         } else {
-            return null;
+            return [null, null];
         }
     }
 

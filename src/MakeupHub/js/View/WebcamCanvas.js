@@ -80,8 +80,8 @@ class WebcamCanvas{
         this.context.fill();
     }
     putImageData(img, x, y){
-        console.log(img);
         this.context.putImageData(img, x, y);
+        this.context.fill();
     }
 }
 
