@@ -256,7 +256,7 @@ class Homography {
             this._srcPointsAreNormalized = false;
         }
         // If I have the dstPoints setted, try to recalculate the new transform matrix if possible (except for piecewise).
-        if(this._dstPoints !== null && this.transform !== 'piecewise'){
+        if(this._dstPoints !== null && this.transform !== 'piecewiseaffine'){
             this._transformMatrix = calculateTransformMatrix(this.transform, this._srcPoints, this._dstPoints);
         }
         this._pointsZ = srcPointsZ;
@@ -302,14 +302,14 @@ class Homography {
      */
     setImage(image, width = null, height = null){
         // Set the current width and height of the input. As the width/height given by the user or the original width/height of the image if not given
-        if (this._width === null || this._height === null){
+        if ((this._width === null || this._height === null) && !ArrayBuffer.isView(image.data)){
             this._setSrcWidthHeight((width === null? image.width : width), (height === null? image.height : height));
         }
-        
         // Sets the image as a flat Uint8ClampedArray, for dealing fast with it. It will also resize the image if needed.
         // If it is already ImageData save it, else convert it
         if (ArrayBuffer.isView(image.data)){
             this._image = image.data;
+            this._setSrcWidthHeight(image.width, image.height);
         } else {
             this._HTMLImage = image;
             this._image = this._getImageAsRGBAArray(image);
@@ -350,7 +350,7 @@ class Homography {
         // Transform it to a typed array for perfomance reasons
         if(!ArrayBuffer.isView(points)) points = new Float32Array(points.flat());
         // Verify that these points matches with the source points
-        if(points.length !== this._srcPoints.length) 
+        if(this._srcPoints !== null && points.length !== this._srcPoints.length) 
             throw(`It must be the same amount of destiny points (${points.length/dims}) than source points (${this._srcPoints.length/dims})`);
         // Set them
         this._dstPoints = points;
@@ -659,8 +659,6 @@ class Homography {
     _setSrcWidthHeight(width, height){
         const last_width = this._width;
         const last_height = this._height;
-        this._width = width;
-        this._height = height;
         // If width and height are the same than before don't do anything. As all the previous structures are already valid
         if(last_width !== width || last_height !== height){
             this._width = Math.round(width);
@@ -690,6 +688,7 @@ class Homography {
 
             // Resize the image if necessary
             if(this._image !== null && this._HTMLImage !== null){
+                console.log("RESIZING?")
                 this._image = this._getImageAsRGBAArray(this._HTMLImage);
             }
             
@@ -782,6 +781,7 @@ class Homography {
             }
             // If destiny points are known (as well as source points), build also the transformation matrices if they did not exist.
             // NOTE that it forces to unset piecewiseMatrices (set as null) when source points or destiny points are modified.
+
             if(this._dstPoints !== null && this._piecewiseMatrices === null && this._triangles !== null){
                 if(this._dstPointsAreNormalized){
                     // Denormalize dstPoints for putting them in the same range than srcPoints
@@ -1136,6 +1136,7 @@ class Homography {
         this._hiddenCanvasContext.clearRect(0, 0, this._width, this._height);
         this._hiddenCanvasContext.drawImage(image, 0, 0, this._width, this._height); //image.width, image.height);
         const imageRGBA = this._hiddenCanvasContext.getImageData(0, 0, this._width, this._height);
+        console.log("RGBA IMAGE", imageRGBA)
         return imageRGBA.data;
     }
     

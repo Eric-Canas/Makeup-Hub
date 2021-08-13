@@ -26,6 +26,7 @@ class FaceMeshController{
      */
     constructor(webcamController, painter){
         this.webcamController = webcamController;
+        this.webcamController.videoStream.addEventListener('loadeddata', this.predict.bind(this));
         this.faceMesh = null;
         this.painter = painter;
         this.painter.setFaceMeshController(this)
@@ -37,13 +38,13 @@ class FaceMeshController{
         this.faceMesh = await faceLandmarksDetection.load(faceLandmarksDetection.SupportedPackages.mediapipeFacemesh, options); 
         //Iris are the last 10 marks and it corresponds with the scaledMesh of prediction
         this.painter.addSrcPoints(this.faceMesh.__proto__.constructor.getUVCoords());
-        this.webcamController.videoStream.addEventListener('loadeddata', this.predict.bind(this));
+
     }
     
     async predict(){
         const prediction = await this.faceMesh.estimateFaces({input: this.webcamController.videoStream});
         if (prediction.length > 0){ //&& prediction.faceInViewConfidence > CONFIDENCE_THRESHOLD
-            this.painter.paint(prediction[0].scaledMesh);
+            await this.painter.paint(prediction[0].scaledMesh);
         }
         setTimeout(() => this.predict(), 0.1)
     }

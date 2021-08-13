@@ -9,7 +9,8 @@
  * @file   This file defines the WebcamController class.
  * @since  0.0.1
  */
-import {WEBCAM_FRAME_ID} from "../Model/Constants.js";
+import {MAX_AXIS_SHAPE, WEBCAM_FRAME_ID} from "../Model/Constants.js";
+import {adjustedWidthHeightFromBoudingBox} from "../Helpers/Utils.js"
 
 class WebcamController{
     constructor(videoID=WEBCAM_FRAME_ID){
@@ -42,6 +43,14 @@ class WebcamController{
         this.hiddenCanvas.height = this.height;
     }
 
+    takeSubPictureAsImageData(boundingBox, maxAxis=MAX_AXIS_SHAPE){
+        const [adjustedWidth, adjustedHeight] = adjustedWidthHeightFromBoudingBox(boundingBox, maxAxis);
+        if (this.hiddenCanvas.width < adjustedWidth) this.hiddenCanvas.width = adjustedWidth;
+        if (this.hiddenCanvas.height < adjustedHeight) this.hiddenCanvas.height = adjustedHeight;
+        this.hiddenCanvasContext.drawImage(this.videoStream, boundingBox.x, boundingBox.y, boundingBox.width, boundingBox.height,
+                                           0, 0, adjustedWidth, adjustedHeight);
+        return this.hiddenCanvasContext.getImageData(0, 0, adjustedWidth, adjustedHeight);
+    }
     takePicture(getAsURL = true){
         this.hiddenCanvasContext.drawImage(this.videoStream, 0, 0, this.width, this.height);
         if (getAsURL){

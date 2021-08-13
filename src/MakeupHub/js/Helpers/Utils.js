@@ -46,6 +46,34 @@ function cropImage(img, boundingBox, maxAxis=MAX_AXIS_SHAPE, getAsURL=true){
 }
 export {cropImage};
 
+function imgDataToDataURL(imgData){
+  hiddenCanvas.width = imgData.width;
+  hiddenCanvas.height = imgData.height;
+  hiddenCanvasContext.putImageData(imgData, 0, 0);
+  return hiddenCanvas.toDataURL('image/png');
+}
+export {imgDataToDataURL};
+
+function dataURLToHTMLImgElement(img){
+    const photo = document.createElement('img');
+    photo.src = img;
+    return new Promise((resolve, reject) => {
+        photo.onload = () => {resolve(photo);};
+        photo.onerror = reject;
+    });
+}
+export {dataURLToHTMLImgElement};
+
+function dataURLToImageData(imgURL){
+  const photo = document.createElement('img');
+  photo.src = img;
+  return new Promise((resolve, reject) => {
+      photo.onload = () => {resolve(photo);};
+      photo.onerror = reject;
+  });
+}
+export {dataURLToImageData};
+
 function adjustedWidthHeightFromBoudingBox(boundingBox, maxAxis = MAX_AXIS_SHAPE){
   let adjustedWidth, adjustedHeight;
   if (boundingBox.width > boundingBox.height){
@@ -55,7 +83,7 @@ function adjustedWidthHeightFromBoudingBox(boundingBox, maxAxis = MAX_AXIS_SHAPE
     adjustedHeight = maxAxis;
     adjustedWidth = maxAxis*(boundingBox.width/boundingBox.height);
   }
-  return [adjustedWidth, adjustedHeight];
+  return [Math.round(adjustedWidth), Math.round(adjustedHeight)];
 }
 export {adjustedWidthHeightFromBoudingBox};
 
