@@ -1,8 +1,9 @@
 import {Homography} from "../Controller/Homography.js";
 import {getRectFromPointsBuffer, cropImage, adjustedWidthHeightFromBoudingBox,
-         sumArrays, dataURLToHTMLImgElement, imgDataToDataURL} from "../Helpers/Utils.js";
+         sumArrays, dataURLToHTMLImgElement, imgDataToDataURL,
+        newXYForBoundingBoxReshapeKeepingCenter, imageDataToHTMLImageElement} from "../Helpers/Utils.js";
 import {PaintManager} from "../Controller/PaintManager.js";
-import {MOONIFY_CHECKBOX_ID, MOONIFY_SLIDER_ID, MAKE_UP_BUTTON_ID} from "../Model/Constants.js"
+import {MOONIFY_CHECKBOX_ID, MOONIFY_SLIDER_ID, MAKE_UP_BUTTON_ID, MOON_FACE_RATIO} from "../Model/Constants.js"
 
 const scale = 1;
 const width = 640;
@@ -16,6 +17,7 @@ class Painter{
         this.faceMeshController = null;
         this.plainMaskPoints = null;
         this.plainMaskTriangles = null;
+        this.currentMakeUpMask = null;
         this.homography = new Homography('piecewiseaffine');
         this.inverseHomography = new Homography('piecewiseaffine');
         this.moonifyHomography = new Homography('piecewiseaffine');
@@ -28,10 +30,12 @@ class Painter{
         this.moonifyCheckbox = document.getElementById(MOONIFY_CHECKBOX_ID);
         this.moonify = this.moonifyCheckbox.checked;
         this.moonifySlider = document.getElementById(MOONIFY_SLIDER_ID);
-        this.moonifyRatio = this.moonifySlider.value;
+        this.moonifyRatio = this.moonifySlider.value/100;
         this.moonifyCheckbox.onchange = this.onchangeMoonifiedCheckbox.bind(this);
         this.moonifySlider.onchange = this.onchangeMoonifiedSlider.bind(this);
         this.currentMoonifyDstPoints = null;
+        this.currentMoonWidth = mask_width;
+        this.currentMoonHeight = mask_height;
         document.getElementById(MAKE_UP_BUTTON_ID).onclick = this.openPaint.bind(this, null, false);
         document.getElementById('moonifiedPaint').onclick = this.openPaint.bind(this, null, true);
     }
@@ -47,7 +51,11 @@ class Painter{
     }
 
     onchangeMoonifiedSlider(){
-        this.moonifyRatio = this.moonify.value;
+        this.moonifyRatio = this.moonifySlider.value;
+        this.currentMoonWidth = mask_width*(this.moonifyRatio/100);
+        this.currentMoonHeight = mask_height*(this.moonifyRatio/100);
+        this.rescaleActualMoonPointsAndGetBoundingBox(this.currentMoonWidth, this.currentMoonHeight, false);
+        this.moonifyHomography.setDestinyPoints(this.actualMoonPoints);
     }
     async paint(prediction, drawPoints = false){
         if (this.moonify){
@@ -65,7 +73,7 @@ class Painter{
         this.webcamCanvas.putImageData(img, boundingBox.x , boundingBox.y);
         if (drawPoints){
             for(let i=0; i<this.dstPoints.length; i+=2){
-                this.webcamCanvas.drawPoint(this.dstPoints[i]+boundingBox.x, dstPoints[i+1]+boundingBox.y, 1, 'blue');
+                this.webcamCanvas.drawPoint(this.dstPoints[i]+boundingBox.x, this.dstPoints[i+1]+boundingBox.y, 1, 'blue');
             }
         }
     }
@@ -79,16 +87,23 @@ class Painter{
             this.dstPoints[i] = (this.dstPoints[i]/boundingBox.width)*adjustedWidth;
             this.dstPoints[i+1] = (this.dstPoints[i+1]/boundingBox.height)*adjustedHeight;
         }
+        const dstWidth = (boundingBox.height*this.moonifyRatio/100)*MOON_FACE_RATIO;
+        const dstHeight = (boundingBox.height*this.moonifyRatio/100)*MOON_FACE_RATIO;
         //this.moonifyHomography = new Homography("piecewiseaffine");
         this.moonifyHomography.setSourcePoints(this.dstPoints, face, adjustedWidth, adjustedHeight, false);
+        this.rescaleActualMoonPointsAndGetBoundingBox(dstWidth, dstHeight, false);
         this.moonifyHomography.setDestinyPoints(this.actualMoonPoints, false)
         
         const img = this.moonifyHomography.warp(null, false, true);
         this.webcamCanvas.clearCanvas();
-        this.webcamCanvas.putImageData(img, boundingBox.x/2 , boundingBox.y/2);
+        const [xToDraw, yToDraw] = newXYForBoundingBoxReshapeKeepingCenter(boundingBox, dstWidth, dstHeight)
+        this.webcamCanvas.putImageData(img, xToDraw , yToDraw);
+        if (this.currentMakeUpMask !== null){
+            this.webcamCanvas.drawImage(this.currentMakeUpMask, xToDraw, yToDraw, img.width, img.height);
+        }
         if (drawPoints){
             for(let i=0; i<this.dstPoints.length; i+=2){
-                this.webcamCanvas.drawPoint(this.dstPoints[i]+boundingBox.x, dstPoints[i+1]+boundingBox.y, 1, 'blue');
+                this.webcamCanvas.drawPoint(this.actualMoonPoints[i]+xToDraw, this.actualMoonPoints[i+1]+yToDraw, 1, 'blue');
             }
         }
         //this.webcamCanvas.drawImage(img, boundingBox.x, boundingBox.y, boundingBox.width, boundingBox.height)
@@ -146,14 +161,18 @@ class Painter{
         this.moonifyHomography.setDestinyPoints(this.actualMoonPoints, false)
         this.plainMaskTriangles = this.homography._triangles;
         this.plainMaskBoundingBox = boundingBox;
+        
     }
 
-    setMask(img){
+    async setMask(img){
         if (ArrayBuffer.isView(img.data)){
             sumArrays(this.homography._image, img.data);
+            this.currentMakeUpMask = await imageDataToHTMLImageElement(img);
         } else {
             this.homography.setImage(img);
+            this.currentMakeUpMask = img;
         }
+        
     }
 
     fillDstPointsAndGetBoundingBox(prediction, calculateWidthHeight = true){

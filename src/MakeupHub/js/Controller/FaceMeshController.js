@@ -42,11 +42,15 @@ class FaceMeshController{
     }
     
     async predict(){
-        const prediction = await this.faceMesh.estimateFaces({input: this.webcamController.videoStream});
-        if (prediction.length > 0){ //&& prediction.faceInViewConfidence > CONFIDENCE_THRESHOLD
-            await this.painter.paint(prediction[0].scaledMesh);
+        if (this.faceMesh !== null){
+            const prediction = await this.faceMesh.estimateFaces({input: this.webcamController.videoStream});
+            if (prediction.length > 0){ //&& prediction.faceInViewConfidence > CONFIDENCE_THRESHOLD
+                await this.painter.paint(prediction[0].scaledMesh);
+            }
+            setTimeout(() => this.predict(), 0.1)
+        } else {
+            setTimeout(() => this.predict(), 500)
         }
-        setTimeout(() => this.predict(), 0.1)
     }
 
     async predictBoundingBoxFromImage(img){

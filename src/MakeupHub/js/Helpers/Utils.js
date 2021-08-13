@@ -54,6 +54,23 @@ function imgDataToDataURL(imgData){
 }
 export {imgDataToDataURL};
 
+async function imageDataToHTMLImageElement(img){
+  hiddenCanvas.width = img.width;
+  hiddenCanvas.height = img.height;
+
+  hiddenCanvasContext.clearRect(0, 0, img.width, img.height);
+  hiddenCanvasContext.putImageData(imgData, 0, 0);
+  let imgElement = document.createElement('img')
+  imgElement.src = hiddenCanvas.toDataURL();
+  imgElement.width = img.width;
+  imgElement.height = img.height;
+  return new Promise((resolve, reject) => {
+    imgElement.onload = () => {resolve(imgElement);};
+    imgElement.onerror = reject;
+  });
+}
+export {imageDataToHTMLImageElement};
+
 function dataURLToHTMLImgElement(img){
     const photo = document.createElement('img');
     photo.src = img;
@@ -98,6 +115,27 @@ function sumArrays(arr1, arr2){
 }
 export {sumArrays};
 
+function newXYForBoundingBoxReshapeKeepingCenter(boundingBox, newWidth, newHeight){
+  const lastXCenter = boundingBox.x+boundingBox.width/2;
+  const lastYCenter = boundingBox.y+boundingBox.height/2;
+  const newX = lastXCenter-newWidth/2;
+  const newY = lastYCenter-newHeight/2;
+  return [newX, newY];
+}
+export {newXYForBoundingBoxReshapeKeepingCenter};
+
+function overlapArrays(origin, toOverlap){
+  for(let i = 0; i<origin.length; i+=3){
+    if (toOverlap[i+3] > 0){
+      console.log("GFUEI")
+      origin[i] = origin[i]*(1-toOverlap[i+3]/255)+toOverlap[i]*toOverlap[i+3]/255;
+      origin[i+1] = origin[i+1]*(1-toOverlap[i+3]/255)+toOverlap[i+1]*toOverlap[i+3]/255;
+      origin[i+2] = origin[i+2]*(1-toOverlap[i+3]/255)+toOverlap[i+2]*toOverlap[i+3]/255;
+    }      
+  }
+
+}
+export {overlapArrays}
 
 function mapValue(x, in_min, in_max, out_min = 0, out_max = 1) {
   x = x < in_min? in_min : x;
