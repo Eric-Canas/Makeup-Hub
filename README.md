@@ -8,6 +8,17 @@ Makeup-Hub allows you to paint and put some stickers your face, and see how it l
 
 Simply run the <a href="./src/public/play.html" target="_blank">./src/public/play.html</a> in server mode.
 
-Turn on your **webcam** click on **Makeup!** and draw a beatiful artwork on your face.
+Turn on your **webcam** click on **Makeup!** and draw a beatiful artwork on your face.  
+<img alt="Make up" title="Make up" src="./documentation/exampleImages/Drawing.gif" width=450>
 
+Then see how does it fits you, or try to <i>moonify</i> your face :full_moon_with_face:.  
+<img alt="Make up" title="Make up" src="./documentation/exampleImages/Moonifying.gif" width=450>
+
+Or try to **Copy-Paste** some shitty images on your cheeks, a face mask or whatever you want (drawing or pasting images over your <i>moonified</i> face will adjust them better to your skin).  
+
+<img alt="Shitty Stickers" title="Shitty Stickers" src="./documentation/exampleImages/ShittyStickers.gif" width=450 align=left>
+<img alt="Face Mask" title="Face Mask" src="./documentation/exampleImages/FaceMask.gif" width=450>
+
+
+## Implementation Details
 
