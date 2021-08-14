@@ -54,12 +54,21 @@ function imgDataToDataURL(imgData){
 }
 export {imgDataToDataURL};
 
+
+function HTMLImageElementToImageURL(image){
+  hiddenCanvas.width = image.width;
+  hiddenCanvas.height = image.height;
+  hiddenCanvasContext.drawImage(image, 0, 0, image.width, image.height);
+  return hiddenCanvas.toDataURL('image/png');
+}
+export {HTMLImageElementToImageURL};
+
 async function imageDataToHTMLImageElement(img){
   hiddenCanvas.width = img.width;
   hiddenCanvas.height = img.height;
 
   hiddenCanvasContext.clearRect(0, 0, img.width, img.height);
-  hiddenCanvasContext.putImageData(imgData, 0, 0);
+  hiddenCanvasContext.putImageData(img, 0, 0);
   let imgElement = document.createElement('img')
   imgElement.src = hiddenCanvas.toDataURL();
   imgElement.width = img.width;
@@ -80,7 +89,7 @@ function dataURLToHTMLImgElement(img){
     });
 }
 export {dataURLToHTMLImgElement};
-
+/*
 function dataURLToImageData(imgURL){
   const photo = document.createElement('img');
   photo.src = img;
@@ -89,7 +98,7 @@ function dataURLToImageData(imgURL){
       photo.onerror = reject;
   });
 }
-export {dataURLToImageData};
+export {dataURLToImageData};*/
 
 function adjustedWidthHeightFromBoudingBox(boundingBox, maxAxis = MAX_AXIS_SHAPE){
   let adjustedWidth, adjustedHeight;

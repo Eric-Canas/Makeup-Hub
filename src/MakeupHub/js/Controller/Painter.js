@@ -36,8 +36,7 @@ class Painter{
         this.currentMoonifyDstPoints = null;
         this.currentMoonWidth = mask_width;
         this.currentMoonHeight = mask_height;
-        document.getElementById(MAKE_UP_BUTTON_ID).onclick = this.openPaint.bind(this, null, false);
-        document.getElementById('moonifiedPaint').onclick = this.openPaint.bind(this, null, true);
+        document.getElementById(MAKE_UP_BUTTON_ID).onclick = this.openPaint.bind(this, null);
     }
 
     onchangeMoonifiedCheckbox(){
@@ -87,8 +86,8 @@ class Painter{
             this.dstPoints[i] = (this.dstPoints[i]/boundingBox.width)*adjustedWidth;
             this.dstPoints[i+1] = (this.dstPoints[i+1]/boundingBox.height)*adjustedHeight;
         }
-        const dstWidth = (boundingBox.height*this.moonifyRatio/100)*MOON_FACE_RATIO;
-        const dstHeight = (boundingBox.height*this.moonifyRatio/100)*MOON_FACE_RATIO;
+        const dstWidth = boundingBox.height*(this.moonifyRatio/100)*MOON_FACE_RATIO;
+        const dstHeight = boundingBox.height*(this.moonifyRatio/100)*MOON_FACE_RATIO;
         //this.moonifyHomography = new Homography("piecewiseaffine");
         this.moonifyHomography.setSourcePoints(this.dstPoints, face, adjustedWidth, adjustedHeight, false);
         this.rescaleActualMoonPointsAndGetBoundingBox(dstWidth, dstHeight, false);
@@ -109,15 +108,16 @@ class Painter{
         //this.webcamCanvas.drawImage(img, boundingBox.x, boundingBox.y, boundingBox.width, boundingBox.height)
     }
 
-    async openPaint(event, moonified = false){
+    async openPaint(){
         const [photo, detections, detectionsZ] = await this.captureCroppedFace(true);
         if(photo !== null){
-            if (moonified){
+            if (this.moonify){
                 const moonFace = await dataURLToHTMLImgElement(photo);
                 this.inverseHomography.setSourcePoints(detections, moonFace, null, null, false, detectionsZ);
                 this.paintManager.openMoon(imgDataToDataURL(this.inverseHomography.warp(null, false, true)));
             } else {
-                    this.paintManager.open(photo, detections, detectionsZ, this.plainMaskPoints, this.plainMaskTriangles);
+                const face = await dataURLToHTMLImgElement(photo);
+                this.paintManager.open(photo, detections, detectionsZ, this.plainMaskPoints, face.width, face.height, this.plainMaskTriangles);
             }
         }
     }
@@ -127,14 +127,18 @@ class Painter{
         let [prediction, boundingBox] = await this.faceMeshController.predictBoundingBoxFromImage(img);
         if (returnPrediction){
             if (boundingBox === null) return [null, null, null];
+            boundingBox = this.fillDstPointsAndGetBoundingBox(prediction);
             const [adjustedWidth, adjustedHeight] = adjustedWidthHeightFromBoudingBox(boundingBox);
-            let dstPoints = new Float32Array(this.pointsLength*2);
+            for (let i=0; i<this.dstPoints.length; i+=2){
+                this.dstPoints[i] = (this.dstPoints[i]/boundingBox.width)*adjustedWidth;
+                this.dstPoints[i+1] = (this.dstPoints[i+1]/boundingBox.height)*adjustedHeight;
+            }
+            let dstPoints = Float32Array.from(this.dstPoints);
             let dstPointsZ = new Float32Array(this.pointsLength);
             for (let i = 0; i<this.pointsLength; i++){
-                dstPoints[(i*2)] = ((prediction[i][0]-boundingBox.x)/boundingBox.width)*adjustedWidth;
-                dstPoints[(i*2)+1] = ((prediction[i][1]-boundingBox.y)/boundingBox.height)*adjustedHeight;
                 dstPointsZ[i] = prediction[i][2];
             }
+
             return [await cropImage(img, boundingBox), dstPoints, dstPointsZ];
         } else {
             if (boundingBox === null) return null;
@@ -157,7 +161,9 @@ class Painter{
         // Initialize a fully transparent mask with size width*height*RGBA channels.
         const initialImage = new ImageData(new Uint8ClampedArray(boundingBox.width*boundingBox.height*4), boundingBox.width, boundingBox.height);
         this.homography.setSourcePoints(this.plainMaskPoints, initialImage, boundingBox.width, boundingBox.height, false);
+        this.inverseHomography.setTriangles(this.homography._triangles.slice(0));
         this.inverseHomography.setDestinyPoints(this.plainMaskPoints, false);
+        this.moonifyHomography.setTriangles(this.homography._triangles.slice(0));
         this.moonifyHomography.setDestinyPoints(this.actualMoonPoints, false)
         this.plainMaskTriangles = this.homography._triangles;
         this.plainMaskBoundingBox = boundingBox;

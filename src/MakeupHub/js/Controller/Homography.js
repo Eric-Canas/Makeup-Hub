@@ -1204,8 +1204,8 @@ function fillTriangleTakingZIntoAccount(triangle, z, idx, matrix_width, yOffset,
         [xOrigin, xDestiny] = predictXLimits(segments, y);
         for(let x = xOrigin; x<xDestiny; x++){
             const position = (y-yOffset)*matrix_width + Math.round(x);
-            if (z > trianglesZCorrespondencesMatrix[position]){
-                trianglesZCorrespondencesMatrix[position] = z;
+            if (z*-1 > trianglesZCorrespondencesMatrix[position]){
+                trianglesZCorrespondencesMatrix[position] = z*-1;
                 trianglesCorrespondencesMatrix[position] = idx;
             }
         }

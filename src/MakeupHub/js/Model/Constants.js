@@ -38,7 +38,7 @@ const ROUGH_EPSION = 0.0025;
 export {EPSILON, ROUGH_EPSION};
 
 const INITIAL_MASK_PATH = '../MakeupHub/js/Resources/mesh_map_resized.jpg';
-const MAX_AXIS_SHAPE = 496*2;
+const MAX_AXIS_SHAPE = 496;
 export {INITIAL_MASK_PATH, MAX_AXIS_SHAPE};
 
 const MOONIFY_CHECKBOX_ID = 'moonify';
