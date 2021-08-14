@@ -688,7 +688,6 @@ class Homography {
 
             // Resize the image if necessary
             if(this._image !== null && this._HTMLImage !== null){
-                console.log("RESIZING?")
                 this._image = this._getImageAsRGBAArray(this._HTMLImage);
             }
             
@@ -1136,7 +1135,6 @@ class Homography {
         this._hiddenCanvasContext.clearRect(0, 0, this._width, this._height);
         this._hiddenCanvasContext.drawImage(image, 0, 0, this._width, this._height); //image.width, image.height);
         const imageRGBA = this._hiddenCanvasContext.getImageData(0, 0, this._width, this._height);
-        console.log("RGBA IMAGE", imageRGBA)
         return imageRGBA.data;
     }
     

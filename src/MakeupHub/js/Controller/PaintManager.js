@@ -28,7 +28,6 @@ class PaintManager{
         this.maskTransformation.setDestinyPoints(dstPoints);
         let transformedMask = null;
         if (this.currentMaskAsHTML !== null){
-            console.log(this.currentMaskAsHTML);
             this.plainToFaceTransformation.setSourcePoints(dstPoints, this.currentMaskAsHTML, null, null, false);
             this.plainToFaceTransformation.setDestinyPoints(srcPoints);
             transformedMask = imgDataToDataURL(this.plainToFaceTransformation.warp(null,false, true));

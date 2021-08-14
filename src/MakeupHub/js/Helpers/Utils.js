@@ -133,18 +133,6 @@ function newXYForBoundingBoxReshapeKeepingCenter(boundingBox, newWidth, newHeigh
 }
 export {newXYForBoundingBoxReshapeKeepingCenter};
 
-function overlapArrays(origin, toOverlap){
-  for(let i = 0; i<origin.length; i+=3){
-    if (toOverlap[i+3] > 0){
-      console.log("GFUEI")
-      origin[i] = origin[i]*(1-toOverlap[i+3]/255)+toOverlap[i]*toOverlap[i+3]/255;
-      origin[i+1] = origin[i+1]*(1-toOverlap[i+3]/255)+toOverlap[i+1]*toOverlap[i+3]/255;
-      origin[i+2] = origin[i+2]*(1-toOverlap[i+3]/255)+toOverlap[i+2]*toOverlap[i+3]/255;
-    }      
-  }
-
-}
-export {overlapArrays}
 
 function mapValue(x, in_min, in_max, out_min = 0, out_max = 1) {
   x = x < in_min? in_min : x;
